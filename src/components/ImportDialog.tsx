@@ -8,13 +8,19 @@ import {
   Box,
   Typography,
   Alert,
-  TextField,
 } from '@mui/material';
 import { saveBoardData } from '../utils/storage';
 
 interface ImportDialogProps {
   open: boolean;
   onClose: () => void;
+}
+
+interface ImportedData {
+  holdingArea: any[];
+  boardCells: any[][];
+  numberOfYears: number;
+  visibleYears: Set<number>;
 }
 
 const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => {
@@ -46,19 +52,22 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose }) => {
       reader.onload = async (e) => {
         try {
           const content = e.target?.result as string;
-          const data = JSON.parse(content);
+          const data = JSON.parse(content) as ImportedData;
 
           // Validate the data structure
           if (!data.holdingArea || !data.boardCells || !data.numberOfYears || !data.visibleYears) {
             throw new Error('Invalid data format');
           }
 
+          // Convert visibleYears from Set to Array if needed
+          const visibleYearsArray = Array.from(data.visibleYears);
+
           // Save the imported data
           await saveBoardData(
             data.holdingArea,
             data.boardCells,
             data.numberOfYears,
-            data.visibleYears
+            new Set(visibleYearsArray)
           );
 
           // Close the dialog and refresh the page

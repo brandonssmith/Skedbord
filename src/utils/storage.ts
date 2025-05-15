@@ -43,25 +43,22 @@ export const saveBoardData = async (holdingArea: Cell[], boardCells: BoardCell[]
   }
 };
 
-export const loadBoardData = async (): Promise<BoardData | null> => {
+export const loadBoardData = async (): Promise<{
+  holdingArea: Cell[];
+  boardCells: BoardCell[][];
+  numberOfYears: number;
+  visibleYears: number[];
+} | null> => {
   try {
-    console.log('Loading board data...');
-    const response = await fetch(API_URL);
-    if (!response.ok) {
-      throw new Error('Failed to load board data');
-    }
-    const data = await response.json();
-    console.log('Board data loaded:', {
-      holdingAreaLength: data.holdingArea?.length || 0,
-      boardCellsDimensions: `${data.boardCells?.length || 0}x${data.boardCells?.[0]?.length || 0}`,
-      numberOfYears: data.numberOfYears || 1,
-      visibleYears: data.visibleYears || [0],
-    });
+    const data = localStorage.getItem('boardData');
+    if (!data) return null;
+
+    const parsedData = JSON.parse(data);
     return {
-      holdingArea: data.holdingArea || [],
-      boardCells: data.boardCells || [],
-      numberOfYears: data.numberOfYears || 1,
-      visibleYears: new Set(data.visibleYears || [0]),
+      holdingArea: parsedData.holdingArea || [],
+      boardCells: parsedData.boardCells || [],
+      numberOfYears: parsedData.numberOfYears || 1,
+      visibleYears: Array.from(parsedData.visibleYears || [0]),
     };
   } catch (error) {
     console.error('Error loading board data:', error);

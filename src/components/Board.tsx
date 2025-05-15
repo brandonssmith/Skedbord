@@ -1,25 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Paper, Typography, Grid, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Menu, MenuItem } from '@mui/material';
-import { ChromePicker } from 'react-color';
+import { Box, Paper, Typography, Grid, Button, Dialog, DialogTitle, DialogContent, DialogActions, Menu, MenuItem, TextField } from '@mui/material';
 import { v4 as uuidv4 } from 'uuid';
-import { Theater, Cell, BoardCell } from '../types/board';
+import { Cell, BoardCell } from '../types/board';
 import ContextMenu from './ContextMenu';
 import EditDialog from './EditDialog';
 import { saveBoardData, loadBoardData } from '../utils/storage';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import html2pdf from 'html2pdf.js';
 import ImportDialog from './ImportDialog';
-
-const theaters: Theater[] = [
-  { name: 'Polson', screens: 6 },
-  { name: 'Havre', screens: 4 },
-  { name: 'Cut Bank', screens: 2 },
-  { name: 'Lewistown', screens: 2 },
-  { name: 'Wolf Point', screens: 2 },
-  { name: 'Glasgow', screens: 2 },
-  { name: 'Salmon', screens: 2 },
-];
 
 const columnLabels = [
   'Opening', 'Polson 1', 'Polson 2', 'Polson 3', 'Polson 4', 'Polson 5', 'Polson 6',
@@ -45,7 +33,7 @@ const Board: React.FC = () => {
   const [dates, setDates] = useState<Date[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [numberOfYears, setNumberOfYears] = useState(1);
-  const [visibleYears, setVisibleYears] = useState<Set<number>>(new Set([0]));
+  const [visibleYears, setVisibleYears] = useState<number[]>([]);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [printStartDate, setPrintStartDate] = useState<string>('');
   const [printEndDate, setPrintEndDate] = useState<string>('');
@@ -60,8 +48,7 @@ const Board: React.FC = () => {
     // Generate dates starting from March 21, 2025 (Friday)
     const startDate = new Date('2025-03-21');
     const newDates: Date[] = [];
-    const weeksPerYear = 52;
-    const totalWeeks = weeksPerYear * numberOfYears;
+    const totalWeeks = 52 * numberOfYears;
     
     for (let i = 0; i < totalWeeks; i++) {
       const date = new Date(startDate);
@@ -87,7 +74,7 @@ const Board: React.FC = () => {
         if (savedData) {
           // Set the number of years and visible years from saved data
           setNumberOfYears(savedData.numberOfYears);
-          setVisibleYears(new Set(savedData.visibleYears));
+          setVisibleYears(Array.from(savedData.visibleYears));
           
           if (savedData.boardCells) {
             // Ensure the loaded data has the correct structure and length
@@ -153,7 +140,7 @@ const Board: React.FC = () => {
   // Save data whenever it changes
   useEffect(() => {
     if (boardCells.length > 0 && !isLoading) {
-      saveBoardData(holdingArea, boardCells, numberOfYears, visibleYears);
+      saveBoardData(holdingArea, boardCells, numberOfYears, new Set(visibleYears));
     }
   }, [holdingArea, boardCells, numberOfYears, visibleYears, isLoading]);
 
@@ -325,29 +312,26 @@ const Board: React.FC = () => {
   // Function to toggle year visibility
   const toggleYear = (yearIndex: number) => {
     setVisibleYears(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(yearIndex)) {
-        newSet.delete(yearIndex);
+      const newYears = [...prev];
+      const index = newYears.indexOf(yearIndex);
+      if (index === -1) {
+        newYears.push(yearIndex);
       } else {
-        newSet.add(yearIndex);
+        newYears.splice(index, 1);
       }
-      return newSet;
+      return newYears;
     });
   };
 
   const handleAddYear = () => {
     try {
       const newYearIndex = numberOfYears;
-      const weeksPerYear = 52;
       
       // Update the number of years first
       setNumberOfYears(prev => prev + 1);
       
       // Update visible years to include the new year
-      setVisibleYears(prev => new Set([...prev, newYearIndex]));
-      
-      // The dates and board cells will be updated by the useEffect
-      // that watches numberOfYears
+      setVisibleYears(prev => [...prev, newYearIndex]);
       
       // Save the updated state
       saveBoardData(holdingArea, boardCells, numberOfYears + 1, new Set([...visibleYears, newYearIndex]));
@@ -617,6 +601,23 @@ const Board: React.FC = () => {
     }
   };
 
+  // Update the event handlers to include proper types
+  const handlePrintStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPrintStartDate(e.target.value);
+  };
+
+  const handlePrintEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPrintEndDate(e.target.value);
+  };
+
+  const handleExportStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setExportStartDate(e.target.value);
+  };
+
+  const handleExportEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setExportEndDate(e.target.value);
+  };
+
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -702,7 +703,7 @@ const Board: React.FC = () => {
             {Array.from({ length: numberOfYears }, (_, i) => (
               <Button
                 key={i}
-                variant={visibleYears.has(i) ? "contained" : "outlined"}
+                variant={visibleYears.includes(i) ? "contained" : "outlined"}
                 onClick={() => toggleYear(i)}
                 size="small"
               >
@@ -763,7 +764,7 @@ const Board: React.FC = () => {
           {/* Board Cells */}
           {dates.map((date, dateIndex) => {
             const yearIndex = getYearIndex(date);
-            if (!visibleYears.has(yearIndex)) return null;
+            if (!visibleYears.includes(yearIndex)) return null;
             
             return (
               <Grid item xs={12} key={date.toISOString()}>
@@ -886,14 +887,14 @@ const Board: React.FC = () => {
               label="Start Date"
               type="date"
               value={printStartDate}
-              onChange={(e) => setPrintStartDate(e.target.value)}
+              onChange={handlePrintStartDateChange}
               InputLabelProps={{ shrink: true }}
             />
             <TextField
               label="End Date"
               type="date"
               value={printEndDate}
-              onChange={(e) => setPrintEndDate(e.target.value)}
+              onChange={handlePrintEndDateChange}
               InputLabelProps={{ shrink: true }}
             />
           </Box>
@@ -915,14 +916,14 @@ const Board: React.FC = () => {
               label="Start Date"
               type="date"
               value={exportStartDate}
-              onChange={(e) => setExportStartDate(e.target.value)}
+              onChange={handleExportStartDateChange}
               InputLabelProps={{ shrink: true }}
             />
             <TextField
               label="End Date"
               type="date"
               value={exportEndDate}
-              onChange={(e) => setExportEndDate(e.target.value)}
+              onChange={handleExportEndDateChange}
               InputLabelProps={{ shrink: true }}
             />
           </Box>

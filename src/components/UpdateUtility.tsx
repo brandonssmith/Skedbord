@@ -18,14 +18,6 @@ interface UpdateUtilityProps {
   onClose: () => void;
 }
 
-// Configuration for the GitHub repository
-const GITHUB_REPO = {
-  owner: 'your-github-username',
-  repo: 'SkedBord',
-  branch: 'main',
-  baseUrl: 'https://raw.githubusercontent.com',
-};
-
 const UpdateUtility: React.FC<UpdateUtilityProps> = ({ open, onClose }) => {
   const [status, setStatus] = useState<'idle' | 'backing-up' | 'updating' | 'restoring' | 'complete' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -42,15 +34,6 @@ const UpdateUtility: React.FC<UpdateUtilityProps> = ({ open, onClose }) => {
       setError('Failed to backup data: ' + (err as Error).message);
       setStatus('error');
     }
-  };
-
-  const fetchFile = async (path: string): Promise<string> => {
-    const url = `${GITHUB_REPO.baseUrl}/${GITHUB_REPO.owner}/${GITHUB_REPO.repo}/${GITHUB_REPO.branch}/${path}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch ${path}: ${response.statusText}`);
-    }
-    return await response.text();
   };
 
   const handleUpdate = async () => {
@@ -70,7 +53,6 @@ const UpdateUtility: React.FC<UpdateUtilityProps> = ({ open, onClose }) => {
       // Fetch and update each file
       for (const file of filesToUpdate) {
         try {
-          const content = await fetchFile(file);
           // Here you would typically write the file to the filesystem
           // For now, we'll just log it
           console.log(`Updated ${file}`);

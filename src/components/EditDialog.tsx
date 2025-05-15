@@ -11,7 +11,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Typography,
 } from '@mui/material';
 import { ChromePicker } from 'react-color';
 
