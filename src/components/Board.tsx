@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Paper, Typography, Grid, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
+import { Box, Paper, Typography, Grid, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Menu, MenuItem } from '@mui/material';
 import { ChromePicker } from 'react-color';
 import { v4 as uuidv4 } from 'uuid';
 import { Theater, Cell, BoardCell } from '../types/board';
@@ -9,12 +9,7 @@ import { saveBoardData, loadBoardData } from '../utils/storage';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import html2pdf from 'html2pdf.js';
-
-// Add type declaration for html2pdf.js
-declare module 'html2pdf.js' {
-  const html2pdf: any;
-  export default html2pdf;
-}
+import ImportDialog from './ImportDialog';
 
 const theaters: Theater[] = [
   { name: 'Polson', screens: 6 },
@@ -57,6 +52,8 @@ const Board: React.FC = () => {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportStartDate, setExportStartDate] = useState<string>('');
   const [exportEndDate, setExportEndDate] = useState<string>('');
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [toolsMenuAnchor, setToolsMenuAnchor] = useState<null | HTMLElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -90,7 +87,7 @@ const Board: React.FC = () => {
         if (savedData) {
           // Set the number of years and visible years from saved data
           setNumberOfYears(savedData.numberOfYears);
-          setVisibleYears(savedData.visibleYears);
+          setVisibleYears(new Set(savedData.visibleYears));
           
           if (savedData.boardCells) {
             // Ensure the loaded data has the correct structure and length
@@ -287,12 +284,14 @@ const Board: React.FC = () => {
     setContextMenu(null);
   };
 
-  const handleEditSave = (content: string) => {
+  const handleEditSave = (content: string, fontFamily: string, textColor: string) => {
     if (editDialog.cell) {
       const newBoardCells = [...boardCells];
       const cell = newBoardCells[editDialog.cell.dateIndex][editDialog.cell.theaterIndex];
       if (cell.cell) {
         cell.cell.content = content;
+        cell.cell.fontFamily = fontFamily;
+        cell.cell.textColor = textColor;
         setBoardCells(newBoardCells);
       } else {
         // Create a new cell if none exists
@@ -301,6 +300,8 @@ const Board: React.FC = () => {
           content: content,
           isLocked: false,
           color: '#ffffff',
+          fontFamily: fontFamily,
+          textColor: textColor,
         };
         setBoardCells(newBoardCells);
       }
@@ -593,6 +594,29 @@ const Board: React.FC = () => {
     }
   };
 
+  const handleToolsClick = (event: React.MouseEvent<HTMLElement>) => {
+    setToolsMenuAnchor(event.currentTarget);
+  };
+
+  const handleToolsClose = () => {
+    setToolsMenuAnchor(null);
+  };
+
+  const handleToolsItemClick = (action: 'print' | 'export' | 'import') => {
+    handleToolsClose();
+    switch (action) {
+      case 'print':
+        setPrintDialogOpen(true);
+        break;
+      case 'export':
+        setExportDialogOpen(true);
+        break;
+      case 'import':
+        setImportDialogOpen(true);
+        break;
+    }
+  };
+
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -621,20 +645,21 @@ const Board: React.FC = () => {
         </Typography>
         <Button
           variant="contained"
-          onClick={() => setPrintDialogOpen(true)}
+          onClick={handleToolsClick}
           color="primary"
-          sx={{ mb: 1 }}
-        >
-          Print to PDF
-        </Button>
-        <Button
-          variant="contained"
-          onClick={() => setExportDialogOpen(true)}
-          color="secondary"
           sx={{ mb: 2 }}
         >
-          Export Data
+          Tools
         </Button>
+        <Menu
+          anchorEl={toolsMenuAnchor}
+          open={Boolean(toolsMenuAnchor)}
+          onClose={handleToolsClose}
+        >
+          <MenuItem onClick={() => handleToolsItemClick('print')}>Print to PDF</MenuItem>
+          <MenuItem onClick={() => handleToolsItemClick('export')}>Export Data</MenuItem>
+          <MenuItem onClick={() => handleToolsItemClick('import')}>Import Data</MenuItem>
+        </Menu>
         <Box sx={{ flex: 1, overflowY: 'auto' }}>
           {holdingArea.map((cell) => (
             <Paper
@@ -772,6 +797,7 @@ const Board: React.FC = () => {
                           fontSize: '0.8rem',
                           overflow: 'hidden',
                           textAlign: 'center',
+                          margin: '0 10px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -788,10 +814,11 @@ const Board: React.FC = () => {
                             wordBreak: 'break-word',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
-                            display: '-webkit-box',
                             WebkitLineClamp: 3,
                             WebkitBoxOrient: 'vertical',
                             padding: '4px',
+                            fontFamily: boardCells[dateIndex]?.[screenIndex]?.cell?.fontFamily || 'Arial, sans-serif',
+                            color: boardCells[dateIndex]?.[screenIndex]?.cell?.textColor || '#000000',
                           }
                         }}
                         onClick={() => handleCellClick(dateIndex, screenIndex)}
@@ -846,6 +873,8 @@ const Board: React.FC = () => {
         onClose={handleEditClose}
         onSave={handleEditSave}
         initialContent={editDialog.cell?.cell?.content || ''}
+        initialFontFamily={editDialog.cell?.cell?.fontFamily || 'Arial, sans-serif'}
+        initialTextColor={editDialog.cell?.cell?.textColor || '#000000'}
       />
 
       {/* Print Dialog */}
@@ -905,6 +934,12 @@ const Board: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Import Dialog */}
+      <ImportDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+      />
     </Box>
   );
 };

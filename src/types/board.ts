@@ -8,6 +8,8 @@ export interface Cell {
   content: string;
   isLocked: boolean;
   color?: string;
+  fontFamily?: string;
+  textColor?: string;
 }
 
 export interface BoardCell {
